@@ -1,0 +1,58 @@
+name: Build Userscript
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'vite.config.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build Userscript
+      run: npm run build
+
+    - name: Get Version
+      id: version
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*.user.js
+        tag_name: v${{ steps.version.outputs.VERSION }}
+        name: Release v${{ steps.version.outputs.VERSION }}
+        body: |
+          Automatic build from ${{ github.sha }}
+          Built on: ${{ steps.version.outputs.DATE }}
+          
+          ### Installation
+          
+          1. Install [Tampermonkey](https://www.tampermonkey.net/) or [Userscripts](https://github.com/quoid/userscripts) (Safari)
+          2. [**Click here to install**](https://github.com/pv-udpv/perplexity-devstudio/releases/download/v${{ steps.version.outputs.VERSION }}/perplexity-devstudio.user.js)
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
